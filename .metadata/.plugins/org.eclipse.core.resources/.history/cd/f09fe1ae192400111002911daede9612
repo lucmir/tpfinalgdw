@@ -1,0 +1,48 @@
+# -*- coding: utf-8 -*-
+
+import MySQLdb
+
+
+class SbbdDAO:
+    
+    def __connect(self):
+        """ 
+            Open database connection
+        """
+        db = MySQLdb.connect("localhost", "root", "root", "sbbd")
+        return db
+    
+    def __close(self, db):
+        """
+            Close database connection
+        """
+        if db is not None:
+            db.close()
+        
+    def select(self, query):
+        """
+            Execute a select query
+        """
+        db = self.__connect()
+        cursor = db.cursor()
+        try:
+            cursor.execute(query)
+            return cursor.fetchall()
+        except:
+            print "Error: unable to fecth data"
+        self.__close(db)
+
+    def getAllPapersAuthors(self):
+        """
+            Retrieve all authors
+        """
+        db = self.connect()
+        cursor = db.cursor()
+        sql = "SELECT * FROM papers_author"
+        try:
+            cursor.execute(sql)
+            return cursor.fetchall()
+        except:
+            print "Error: unable to fecth data"
+        self.close(db)
+    

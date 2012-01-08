@@ -1,0 +1,297 @@
+# -*- coding: utf-8 -*-
+
+from sbbdDAO import SbbdDAO
+from sbbdQueries import SbbdQueries
+
+def readCoauthorsMap(file):
+    coauthorsMap = {}
+    f = open(file, 'r')
+    for line in f.readlines():
+        authors = line.rstrip().split(';')
+        coauthorsMap[authors[0]] = authors[1:]
+    f.close()
+    return coauthorsMap
+
+
+def statistics(first_year, last_year):
+    
+    print "Estatísticas para anos entre %s e %s:\n" % (first_year, last_year)
+    
+    # get all papers publisher in year
+    papers = SbbdDAO.select(SbbdQueries.getPapers(first_year=first_year, last_year=last_year))
+    print "\tPapers: %s" % len(papers)
+    
+    # get publishers
+    publishers = []
+    for paper in papers:
+        paper_id = paper[0]      
+        authors = SbbdDAO.select(SbbdQueries.getAuthors(paper_id=paper_id))
+        for author in authors:
+            publishers.append(author[0])
+    print "\tAutores distintos %s" % len(set(publishers))
+    
+        
+    
+
+def main():
+    coauthorsMap = readCoauthorsMap('/home/lucmir/Desktop/Faculdade/mestrado/periodo2/gerenciaDeDadosWeb/tpfinal/tpfinalgdw/dblpParser/bin/coauthorsMap.txt')
+    
+    # get all papers publisher in year
+    papers = SbbdDAO.select(SbbdQueries.getPapers(first_year=1099, last_year=2004))
+    
+    # get their publishers
+    publishers = []
+    for paper in papers:
+        paper_id = paper[0]      
+        authors = SbbdDAO.select(SbbdQueries.getAuthors(paper_id=paper_id))
+        for author in authors:
+            publishers.append(author[0])
+    publisher_list = "("
+    for publisher in set(publishers):
+        publisher_list += str(publisher) + ','
+    publisher_list = publisher_list.rstrip(',') + ')'
+    
+    # get publishers coauthors
+    publishers = SbbdDAO.select(SbbdQueries.getAuthorsIn(publisher_list))
+    coauthor_map_count = {}
+    coauthors = []
+    publisher_set = {}
+    for publisher in publishers:
+        publisher_set[publisher[1]] = True
+        publisher_set[publisher[6]] = True
+        try:
+            coauthors += coauthorsMap[publisher[1]];
+        except:
+            pass
+        try:
+            coauthors += coauthorsMap[publisher[6]];
+        except:
+            pass
+        if coauthors is not None:
+            for coauthor in coauthors:
+                if coauthor in coauthor_map_count:
+                    coauthor_map_count[coauthor] += 1
+                else:
+                    coauthor_map_count[coauthor] = 1
+        coauthors = []
+        
+    # eliminate coauthors in publishers
+    to_delete = []
+    k_count_map = {}
+    k_count_map[0] = 479888 - len(publisher_set)
+    for key in coauthor_map_count:
+        if key in publisher_set:
+            to_delete.append(key)
+        else:
+            if coauthor_map_count[key] not in k_count_map:
+                k_count_map[coauthor_map_count[key]] = 1
+            else:
+                k_count_map[coauthor_map_count[key]] += 1
+    for key in to_delete:
+        coauthor_map_count.pop(key)
+    print k_count_map
+    
+    # get all papers publisher in year
+    papers = SbbdDAO.select(SbbdQueries.getPapers(first_year=2004, last_year=2020))
+    
+    # get their publishers
+    publishers = []
+    for paper in papers:
+        paper_id = paper[0]      
+        authors = SbbdDAO.select(SbbdQueries.getAuthors(paper_id=paper_id))
+        for author in authors:
+            publishers.append(author[0])
+    publisher_list = "("
+    for publisher in set(publishers):
+        publisher_list += str(publisher) + ','
+    publisher_list = publisher_list.rstrip(',') + ')'
+    
+    # get new publisher set
+    publishers = SbbdDAO.select(SbbdQueries.getAuthorsIn(publisher_list))
+    new_publisher_set = {}
+    for publisher in publishers:
+        new_publisher_set[publisher[1]] = True
+        new_publisher_set[publisher[6]] = True
+    
+    # print new authors
+    new_k_count_map = {}
+    new_k_count_map[0] = 0
+    for key in coauthor_map_count:
+        if key in new_publisher_set:
+            #print key, coauthor_map_count[key]
+            if coauthor_map_count[key] not in new_k_count_map:
+                new_k_count_map[coauthor_map_count[key]] = 1
+            else:
+                new_k_count_map[coauthor_map_count[key]] += 1
+        else:
+            new_k_count_map[0] += 1
+    print new_k_count_map
+    
+    #imprime resumo estatisticas
+    for i in new_k_count_map:
+        print i, (float(new_k_count_map[i])/float(k_count_map[i]))
+    
+    print "\n"    
+    #imprime resumo estatisticas
+    for i in new_k_count_map:
+        print i, (float(new_k_count_map[i]))
+        
+    
+     
+def main2():
+    
+    outfile = open('/tmp/outfile.txt', 'w')
+    
+    coauthorsMap = readCoauthorsMap('/home/lucmir/Desktop/Faculdade/mestrado/periodo2/gerenciaDeDadosWeb/tpfinal/tpfinalgdw/dblpParser/bin/coauthorsMap.txt')
+    
+    # get all papers publisher in year
+    papers = SbbdDAO.select(SbbdQueries.getPapers(first_year=1099, last_year=2004))
+    
+    # get their publishers
+    publishers = []
+    for paper in papers:
+        paper_id = paper[0]      
+        authors = SbbdDAO.select(SbbdQueries.getAuthors(paper_id=paper_id))
+        for author in authors:
+            publishers.append(author[0])
+    publisher_list = "("
+    for publisher in set(publishers):
+        publisher_list += str(publisher) + ','
+    publisher_list = publisher_list.rstrip(',') + ')'
+    
+    # obtem fringe e sua vizinhanca
+    publishers = SbbdDAO.select(SbbdQueries.getAuthorsIn(publisher_list))
+    fringe = {} # user from fringe -> [list of friends in community]
+    coauthors = []
+    publisher_set = {}
+
+    # para cada publisher pertencente a comunidade
+    for publisher in publishers:
+        publisher_set[publisher[1]] = True
+        publisher_set[publisher[6]] = True
+        try:
+            coauthors += coauthorsMap[publisher[1]];
+        except:
+            pass
+        try:
+            coauthors += coauthorsMap[publisher[6]];
+        except:
+            pass
+        if coauthors is not None:
+            # para cada coauthor de publisher
+            for coauthor in coauthors:
+                if coauthor in fringe:
+                    fringe[coauthor].append(publisher)
+                else:
+                    fringe[coauthor] = [publisher]
+        coauthors = []
+        
+    # eliminate coauthors in publishers
+    to_delete = []
+    for key in fringe:
+        if key in publisher_set:
+            to_delete.append(key)
+    for key in to_delete:
+        fringe.pop(key)
+    outfile.write(str(fringe))
+    
+    connectivity_map = {}
+    for user in fringe:
+        user_friends_in_community = fringe[user]
+        num_user_friends_in_community = len(user_friends_in_community)
+        if(num_user_friends_in_community > 1):
+            connectivity_count = 0
+            for i in range(0, num_user_friends_in_community-1):
+                friend_a = user_friends_in_community[i]
+                friend_b = user_friends_in_community[i+1]
+                if are_friends(coauthorsMap, friend_a, friend_b):
+                    connectivity_count += 1 
+            connectivity_map[user] = round(float(connectivity_count)/float(num_user_friends_in_community-1), 1)  
+        else:
+            connectivity_map[user] = 0.0
+    print connectivity_map
+    
+    # get connectivity_count_map
+    connectivity_count_map = {}
+    connectivity_count_map[0] = 479888 - len(publisher_set)
+    for key in connectivity_map:
+        value = connectivity_map[key]
+        if value not in connectivity_count_map:
+            connectivity_count_map[value] = 1
+        else:
+            connectivity_count_map[value] += 1
+    print connectivity_count_map
+    
+    # get all papers publisher in year
+    papers = SbbdDAO.select(SbbdQueries.getPapers(first_year=2004, last_year=2020))
+    
+    # get their publishers
+    publishers = []
+    for paper in papers:
+        paper_id = paper[0]      
+        authors = SbbdDAO.select(SbbdQueries.getAuthors(paper_id=paper_id))
+        for author in authors:
+            publishers.append(author[0])
+    publisher_list = "("
+    for publisher in set(publishers):
+        publisher_list += str(publisher) + ','
+    publisher_list = publisher_list.rstrip(',') + ')'
+    
+    # get new publisher set
+    publishers = SbbdDAO.select(SbbdQueries.getAuthorsIn(publisher_list))
+    new_publisher_set = {}
+    for publisher in publishers:
+        new_publisher_set[publisher[1]] = True
+        new_publisher_set[publisher[6]] = True
+    
+    # print new authors
+    new_connectivity_count_map = {}
+    new_connectivity_count_map[0] = 0
+    for key in connectivity_map:
+        if key in new_publisher_set:
+            if connectivity_map[key] not in new_connectivity_count_map:
+                new_connectivity_count_map[connectivity_map[key]] = 1
+            else:
+                new_connectivity_count_map[connectivity_map[key]] += 1
+        else:
+            new_connectivity_count_map[0] += 1 
+    print new_connectivity_count_map
+    
+    #imprime resumo estatisticas
+    for i in new_connectivity_count_map:
+        print i, (float(new_connectivity_count_map[i])/float(connectivity_count_map[i]))
+    print "\n"
+    #imprime resumo estatisticas
+    for i in new_connectivity_count_map:
+        print i, (float(new_connectivity_count_map[i]))      
+        
+    # close out file
+    outfile.close()
+
+    
+def are_friends(coauthorsMap, user_a, user_b):
+    try:
+        if(user_a[1] in coauthorsMap[user_b[1]]):
+            return True
+    except:
+        pass
+    try:
+        if( user_b[6] is not None and user_a[1] in coauthorsMap[user_b[6]]):
+            return True
+    except:
+        pass
+    try:
+        if( user_a[6] is not None and user_a[6] in coauthorsMap[user_b[1]]):
+            return True
+    except:
+        pass
+    try:
+        if( user_a[6] is not None and user_b[6] is not None and user_a[6] in coauthorsMap[user_b[6]]):
+            return True
+    except:
+        pass
+    return False
+        
+
+if __name__ == "__main__":
+    statistics(1000, 2004)

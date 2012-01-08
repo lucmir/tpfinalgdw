@@ -1,0 +1,37 @@
+# -*- coding: utf-8 -*-
+
+import MySQLdb
+
+
+class SbbdDAO:
+    
+    @staticmethod
+    def __connect():
+        """ 
+            Open database connection
+        """
+        db = MySQLdb.connect("localhost", "root", "root", "sbbd")
+        return db
+    
+    @staticmethod
+    def __close(db):
+        """
+            Close database connection
+        """
+        if db is not None:
+            db.close()
+        
+    @staticmethod
+    def select(query):
+        """
+            Execute a select query
+        """
+        print query
+        db = SbbdDAO.__connect()
+        cursor = db.cursor()
+        try:
+            cursor.execute(query)
+            return cursor.fetchall()
+        except:
+            print "Error: unable to fecth data"
+        SbbdDAO.__close(db)
